@@ -95,8 +95,8 @@ services:
       POSTGRES_URL: postgres://colanode_user:${COLANODE_POSTGRES_PASSWORD:?Set COLANODE_POSTGRES_PASSWORD in Dokploy environment variables}@postgres:5432/colanode_db
       REDIS_URL: redis://:${COLANODE_VALKEY_PASSWORD:?Set COLANODE_VALKEY_PASSWORD in Dokploy environment variables}@valkey:6379/0
 
-    ports:
-      - '3000:3000'
+    expose:
+      - '3000'
     volumes:
       - server_storage:/var/lib/colanode/storage
       - ./dokploy-config.json:/dokploy-config.json:ro
@@ -107,8 +107,8 @@ services:
     image: ghcr.io/colanode/web:latest
     container_name: colanode_web
     restart: always
-    ports:
-      - '4000:80'
+    expose:
+      - '80'
     networks:
       - colanode_network
 
