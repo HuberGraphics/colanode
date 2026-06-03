@@ -32,6 +32,7 @@ import { MentionExtension } from '@colanode/ui/editor/extensions/mention';
 import { MessageNode } from '@colanode/ui/editor/extensions/message';
 import { OrderedListNode } from '@colanode/ui/editor/extensions/ordered-list';
 import { PageNode } from '@colanode/ui/editor/extensions/page';
+import { PageLinkNode } from '@colanode/ui/editor/extensions/page-link';
 import { ParagraphNode } from '@colanode/ui/editor/extensions/paragraph';
 import { ParserExtension } from '@colanode/ui/editor/extensions/parser';
 import { PlaceholderExtension } from '@colanode/ui/editor/extensions/placeholder';
@@ -71,6 +72,7 @@ export {
   ListKeymapExtension,
   MessageNode,
   OrderedListNode,
+  PageLinkNode,
   PageNode,
   ParagraphNode,
   PlaceholderExtension,

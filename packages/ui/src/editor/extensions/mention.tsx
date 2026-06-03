@@ -15,6 +15,7 @@ import {
   type SuggestionKeyDownProps,
   type SuggestionProps,
 } from '@tiptap/suggestion';
+import { FileText } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -23,7 +24,13 @@ import {
   useState,
 } from 'react';
 
-import { EditorContext, User } from '@colanode/client/types';
+import { NodeListQueryInput } from '@colanode/client/queries';
+import {
+  EditorContext,
+  LocalNode,
+  LocalPageNode,
+  User,
+} from '@colanode/client/types';
 import { generateId, IdType } from '@colanode/core';
 import { Avatar } from '@colanode/ui/components/avatars/avatar';
 import {
@@ -46,6 +53,16 @@ interface MentionOptions {
   context: EditorContext | null;
 }
 
+type MentionSuggestionItem =
+  | {
+      kind: 'user';
+      user: User;
+    }
+  | {
+      kind: 'page';
+      page: LocalPageNode;
+    };
+
 const navigationKeys = ['ArrowUp', 'ArrowDown', 'Enter'];
 
 const CommandList = ({
@@ -54,10 +71,10 @@ const CommandList = ({
   range,
   props,
 }: {
-  items: User[];
-  command: (item: User, range: Range) => void;
+  items: MentionSuggestionItem[];
+  command: (item: MentionSuggestionItem, range: Range) => void;
   range: Range;
-  props: SuggestionProps<User>;
+  props: SuggestionProps<MentionSuggestionItem>;
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -143,7 +160,7 @@ const CommandList = ({
           <ScrollArea className="h-80">
             <ScrollViewport ref={scrollContainer}>
               <div ref={listContainer}>
-                {items.map((item: User, index: number) => (
+                {items.map((item, index) => (
                   <button
                     type="button"
                     className={`relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-left outline-hidden select-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground ${
@@ -151,7 +168,7 @@ const CommandList = ({
                         ? 'bg-accent text-accent-foreground'
                         : ''
                     }`}
-                    key={item.id}
+                    key={item.kind === 'user' ? item.user.id : item.page.id}
                     onClick={() => selectItem(index)}
                     onPointerDownCapture={(e) => {
                       // Added this event handler because the onClick handler was not working
@@ -161,18 +178,41 @@ const CommandList = ({
                     }}
                   >
                     <div className="flex size-10 min-w-10 items-center justify-center rounded-md border bg-background">
-                      <Avatar
-                        id={item.id}
-                        name={item.name}
-                        avatar={item.avatar}
-                        className="size-8"
-                      />
+                      {item.kind === 'user' ? (
+                        <Avatar
+                          id={item.user.id}
+                          name={item.user.name}
+                          avatar={item.user.avatar}
+                          className="size-8"
+                        />
+                      ) : (
+                        <Avatar
+                          id={item.page.id}
+                          name={item.page.name ?? 'Unnamed'}
+                          avatar={item.page.avatar}
+                          className="size-8"
+                        />
+                      )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.email}
-                      </p>
+                      {item.kind === 'user' ? (
+                        <>
+                          <p className="font-medium">{item.user.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {item.user.email}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium">
+                            {item.page.name ?? 'Unnamed'}
+                          </p>
+                          <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <FileText className="size-3" />
+                            Page
+                          </p>
+                        </>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -191,7 +231,7 @@ const renderItems = () => {
   let editor: Editor | null = null;
 
   return {
-    onStart: (props: SuggestionProps<User>) => {
+    onStart: (props: SuggestionProps<MentionSuggestionItem>) => {
       editor = props.editor;
       props.editor.storage.mention.isOpen = true;
 
@@ -203,7 +243,7 @@ const renderItems = () => {
         editor: props.editor,
       });
     },
-    onUpdate: (props: SuggestionProps<User>) => {
+    onUpdate: (props: SuggestionProps<MentionSuggestionItem>) => {
       props.editor.storage.mention.isOpen = true;
       component?.updateProps({
         ...props,
@@ -233,6 +273,53 @@ const renderItems = () => {
       }
     },
   };
+};
+
+const searchPages = async ({
+  context,
+  query,
+}: {
+  context: EditorContext;
+  query: string;
+}): Promise<LocalPageNode[]> => {
+  const filters: NodeListQueryInput['filters'] = [
+    {
+      field: ['type'],
+      operator: 'eq',
+      value: 'page',
+    },
+    {
+      field: ['id'],
+      operator: 'not_eq',
+      value: context.documentId,
+    },
+  ];
+
+  if (query.length > 0) {
+    filters.push({
+      field: ['name'],
+      operator: 'like',
+      value: `%${query}%`,
+    });
+  }
+
+  const nodes = await window.colanode.executeQuery({
+    type: 'node.list',
+    userId: context.userId,
+    filters,
+    sorts: [
+      {
+        field: ['name'],
+        direction: 'asc',
+        nulls: 'last',
+      },
+    ] satisfies NodeListQueryInput['sorts'],
+    limit: 20,
+  });
+
+  return nodes.filter(
+    (node: LocalNode): node is LocalPageNode => node.type === 'page'
+  );
 };
 
 export const MentionExtension = Node.create<MentionOptions>({
@@ -279,7 +366,7 @@ export const MentionExtension = Node.create<MentionOptions>({
         }: {
           editor: Editor;
           range: Range;
-          props: User;
+          props: MentionSuggestionItem;
         }) => {
           // increase range.to by one when the next node is of type "text"
           // and starts with a space character
@@ -290,50 +377,90 @@ export const MentionExtension = Node.create<MentionOptions>({
             range.to += 1;
           }
 
-          editor
-            .chain()
-            .focus()
-            .insertContentAt(range, [
-              {
-                type: this.name,
-                attrs: {
-                  id: generateId(IdType.Mention),
-                  target: props.id,
+          if (props.kind === 'user') {
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(range, [
+                {
+                  type: this.name,
+                  attrs: {
+                    id: generateId(IdType.Mention),
+                    target: props.user.id,
+                  },
                 },
-              },
-              {
-                type: 'text',
-                text: ' ',
-              },
-            ])
-            .run();
+                {
+                  type: 'text',
+                  text: ' ',
+                },
+              ])
+              .run();
+          } else {
+            editor
+              .chain()
+              .focus()
+              .insertContentAt(range, [
+                {
+                  type: 'pageLink',
+                  attrs: {
+                    id: generateId(IdType.Block),
+                    target: props.page.id,
+                  },
+                },
+                {
+                  type: 'text',
+                  text: ' ',
+                },
+              ])
+              .run();
+          }
 
           window.getSelection()?.collapseToEnd();
         },
         allow: ({ state, range }) => {
           const $from = state.doc.resolve(range.from);
-          const type = state.schema.nodes[this.name];
-          if (!type) return false;
-          return !!$from.parent.type.contentMatch.matchType(type);
+          const mentionType = state.schema.nodes[this.name];
+          const pageLinkType = state.schema.nodes.pageLink;
+          return !!(
+            mentionType &&
+            pageLinkType &&
+            $from.parent.type.contentMatch.matchType(mentionType) &&
+            $from.parent.type.contentMatch.matchType(pageLinkType)
+          );
         },
         items: async ({ query }: { query: string }) => {
-          return new Promise<User[]>((resolve) => {
+          return new Promise<MentionSuggestionItem[]>((resolve) => {
             if (!this.options.context) {
-              resolve([] as User[]);
+              resolve([]);
               return;
             }
 
-            const { userId } = this.options.context;
-            window.colanode
-              .executeQuery({
+            const context = this.options.context;
+            const { userId } = context;
+
+            Promise.all([
+              window.colanode.executeQuery({
                 type: 'user.search',
                 userId,
                 searchQuery: query,
                 exclude: [userId],
-              })
-              .then((users) => {
-                resolve(users);
-              });
+              }),
+              searchPages({
+                context,
+                query,
+              }),
+            ]).then(([users, pages]) => {
+              resolve([
+                ...users.slice(0, 10).map((user: User) => ({
+                  kind: 'user' as const,
+                  user,
+                })),
+                ...pages.slice(0, 10).map((page: LocalPageNode) => ({
+                  kind: 'page' as const,
+                  page,
+                })),
+              ]);
+            });
           });
         },
         render: renderItems,

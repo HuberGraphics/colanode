@@ -66,6 +66,7 @@ import {
   ListItemNode,
   ListKeymapExtension,
   OrderedListNode,
+  PageLinkNode,
   PageNode,
   ParagraphNode,
   PlaceholderExtension,
@@ -255,6 +256,7 @@ export const DocumentEditor = ({
         Markdown,
         DocumentNode,
         PageNode,
+        PageLinkNode,
         FolderNode,
         FileNode.configure({
           context: {

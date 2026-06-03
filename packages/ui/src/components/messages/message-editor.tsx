@@ -19,6 +19,7 @@ import {
   ItalicMark,
   LinkMark,
   MessageNode,
+  PageLinkNode,
   ParagraphNode,
   PlaceholderExtension,
   StrikethroughMark,
@@ -77,6 +78,7 @@ export const MessageEditor = forwardRef<
         DropcursorExtension,
         TempFileNode,
         FileNode,
+        PageLinkNode,
         MentionExtension.configure({
           context: {
             userId: props.userId,
