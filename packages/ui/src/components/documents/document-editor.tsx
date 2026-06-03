@@ -65,6 +65,7 @@ import {
   LinkMark,
   ListItemNode,
   ListKeymapExtension,
+  MentionExtension,
   OrderedListNode,
   PageLinkNode,
   PageNode,
@@ -257,6 +258,15 @@ export const DocumentEditor = ({
         DocumentNode,
         PageNode,
         PageLinkNode,
+        MentionExtension.configure({
+          context: {
+            userId: workspace.userId,
+            accountId: workspace.accountId,
+            workspaceId: workspace.workspaceId,
+            documentId: node.id,
+            rootId: node.rootId,
+          },
+        }),
         FolderNode,
         FileNode.configure({
           context: {

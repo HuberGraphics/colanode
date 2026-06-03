@@ -314,7 +314,7 @@ const searchPages = async ({
         nulls: 'last',
       },
     ] satisfies NodeListQueryInput['sorts'],
-    limit: 20,
+    limit: 50,
   });
 
   return nodes.filter(
@@ -438,17 +438,23 @@ export const MentionExtension = Node.create<MentionOptions>({
             const context = this.options.context;
             const { userId } = context;
 
-            Promise.all([
-              window.colanode.executeQuery({
+            const usersPromise = window.colanode
+              .executeQuery({
                 type: 'user.search',
                 userId,
                 searchQuery: query,
                 exclude: [userId],
-              }),
-              searchPages({
-                context,
-                query,
-              }),
+              })
+              .catch(() => [] as User[]);
+
+            const pagesPromise = searchPages({
+              context,
+              query,
+            }).catch(() => [] as LocalPageNode[]);
+
+            Promise.all([
+              usersPromise,
+              pagesPromise,
             ]).then(([users, pages]) => {
               resolve([
                 ...users.slice(0, 10).map((user: User) => ({
