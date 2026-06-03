@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: colanode_user
-      POSTGRES_PASSWORD: postgrespass123
+      POSTGRES_PASSWORD: ${COLANODE_POSTGRES_PASSWORD:?Set COLANODE_POSTGRES_PASSWORD in Dokploy environment variables}
       POSTGRES_DB: colanode_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -20,7 +20,7 @@ services:
     image: valkey/valkey:8.1
     container_name: colanode_valkey
     restart: always
-    command: ['valkey-server', '--requirepass', 'your_valkey_password']
+    command: ['valkey-server', '--requirepass', '${COLANODE_VALKEY_PASSWORD:?Set COLANODE_VALKEY_PASSWORD in Dokploy environment variables}']
     volumes:
       - valkey_data:/data
     ports:
@@ -95,20 +95,18 @@ services:
       # ------------------------------------------------------------------
       NODE_ENV: production
 
-      # Required env:// secrets (default configuration references these as env://VAR)
-      POSTGRES_URL: postgres://colanode_user:postgrespass123@postgres:5432/colanode_db
-      REDIS_URL: redis://:your_valkey_password@valkey:6379/0
-
-      # If you want to override the default configuration mount a config.json as explained below
-      # and add the config.json path as an environment variable:
-      # CONFIG: /config.json
+      # Required env:// secrets used by /config.json
+      CONFIG: /dokploy-config.json
+      COLANODE_WEB_DOMAIN: ${COLANODE_WEB_DOMAIN:?Set COLANODE_WEB_DOMAIN, for example colanode.example.com}
+      COLANODE_CORS_ORIGIN: ${COLANODE_CORS_ORIGIN:?Set COLANODE_CORS_ORIGIN, for example https://colanode.example.com}
+      POSTGRES_URL: postgres://colanode_user:${COLANODE_POSTGRES_PASSWORD:?Set COLANODE_POSTGRES_PASSWORD in Dokploy environment variables}@postgres:5432/colanode_db
+      REDIS_URL: redis://:${COLANODE_VALKEY_PASSWORD:?Set COLANODE_VALKEY_PASSWORD in Dokploy environment variables}@valkey:6379/0
 
     ports:
       - '3000:3000'
     volumes:
       - server_storage:/var/lib/colanode/storage
-      # Mount a config.json sitting next to this compose file to override defaults.
-      # - ./config.json:/config.json:ro
+      - ./dokploy-config.json:/dokploy-config.json:ro
     networks:
       - colanode_network
 

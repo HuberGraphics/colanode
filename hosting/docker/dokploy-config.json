@@ -1,0 +1,33 @@
+{
+  "name": "Colanode",
+  "web": {
+    "domain": "env://COLANODE_WEB_DOMAIN",
+    "protocol": "https"
+  },
+  "mode": "standalone",
+  "cors": {
+    "origin": "env://COLANODE_CORS_ORIGIN",
+    "maxAge": 7200
+  },
+  "account": {
+    "verificationType": "automatic"
+  },
+  "storage": {
+    "tus": {
+      "locker": {
+        "type": "redis",
+        "prefix": "colanode:tus:lock"
+      },
+      "cache": {
+        "type": "none"
+      }
+    },
+    "provider": {
+      "type": "file",
+      "directory": "/var/lib/colanode/storage"
+    }
+  },
+  "logging": {
+    "level": "info"
+  }
+}
