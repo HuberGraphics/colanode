@@ -15,7 +15,7 @@ import {
   type SuggestionKeyDownProps,
   type SuggestionProps,
 } from '@tiptap/suggestion';
-import { FileText } from 'lucide-react';
+import { FilePlus, FileText } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -24,13 +24,7 @@ import {
   useState,
 } from 'react';
 
-import { NodeListQueryInput } from '@colanode/client/queries';
-import {
-  EditorContext,
-  LocalNode,
-  LocalPageNode,
-  User,
-} from '@colanode/client/types';
+import { EditorContext, LocalPageNode, User } from '@colanode/client/types';
 import { generateId, IdType } from '@colanode/core';
 import { Avatar } from '@colanode/ui/components/avatars/avatar';
 import {
@@ -38,6 +32,11 @@ import {
   ScrollViewport,
   ScrollBar,
 } from '@colanode/ui/components/ui/scroll-area';
+import {
+  createEditorPage,
+  getEditorPageName,
+  searchEditorPages,
+} from '@colanode/ui/editor/lib/pages';
 import { MentionNodeView } from '@colanode/ui/editor/views';
 import { updateScrollView } from '@colanode/ui/lib/utils';
 
@@ -61,6 +60,10 @@ type MentionSuggestionItem =
   | {
       kind: 'page';
       page: LocalPageNode;
+    }
+  | {
+      kind: 'create-page';
+      name: string;
     };
 
 const navigationKeys = ['ArrowUp', 'ArrowDown', 'Enter'];
@@ -160,62 +163,92 @@ const CommandList = ({
           <ScrollArea className="h-80">
             <ScrollViewport ref={scrollContainer}>
               <div ref={listContainer}>
-                {items.map((item, index) => (
-                  <button
-                    type="button"
-                    className={`relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-left outline-hidden select-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground ${
-                      index === selectedIndex
-                        ? 'bg-accent text-accent-foreground'
-                        : ''
-                    }`}
-                    key={item.kind === 'user' ? item.user.id : item.page.id}
-                    onClick={() => selectItem(index)}
-                    onPointerDownCapture={(e) => {
-                      // Added this event handler because the onClick handler was not working
-                      e.preventDefault();
-                      e.stopPropagation();
-                      selectItem(index);
-                    }}
-                  >
-                    <div className="flex size-10 min-w-10 items-center justify-center rounded-md border bg-background">
-                      {item.kind === 'user' ? (
-                        <Avatar
-                          id={item.user.id}
-                          name={item.user.name}
-                          avatar={item.user.avatar}
-                          className="size-8"
-                        />
-                      ) : (
-                        <Avatar
-                          id={item.page.id}
-                          name={item.page.name ?? 'Unnamed'}
-                          avatar={item.page.avatar}
-                          className="size-8"
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      {item.kind === 'user' ? (
-                        <>
-                          <p className="font-medium">{item.user.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {item.user.email}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="font-medium">
-                            {item.page.name ?? 'Unnamed'}
-                          </p>
-                          <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                            <FileText className="size-3" />
-                            Page
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                {items.map((item, index) => {
+                  const key =
+                    item.kind === 'user'
+                      ? item.user.id
+                      : item.kind === 'page'
+                        ? item.page.id
+                        : `create-page-${item.name}`;
+                  const pageName =
+                    item.kind === 'page'
+                      ? item.page.name ?? 'Unnamed'
+                      : item.kind === 'create-page'
+                        ? getEditorPageName(item.name)
+                        : null;
+
+                  return (
+                    <button
+                      type="button"
+                      className={`relative flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-left outline-hidden select-none focus:bg-accent focus:text-accent-foreground hover:bg-accent hover:text-accent-foreground ${
+                        index === selectedIndex
+                          ? 'bg-accent text-accent-foreground'
+                          : ''
+                      }`}
+                      key={key}
+                      onClick={() => selectItem(index)}
+                      onPointerDownCapture={(e) => {
+                        // Added this event handler because the onClick handler was not working
+                        e.preventDefault();
+                        e.stopPropagation();
+                        selectItem(index);
+                      }}
+                    >
+                      <div className="flex size-10 min-w-10 items-center justify-center rounded-md border bg-background">
+                        {item.kind === 'user' ? (
+                          <Avatar
+                            id={item.user.id}
+                            name={item.user.name}
+                            avatar={item.user.avatar}
+                            className="size-8"
+                          />
+                        ) : item.kind === 'page' ? (
+                          <Avatar
+                            id={item.page.id}
+                            name={pageName ?? 'Unnamed'}
+                            avatar={item.page.avatar}
+                            className="size-8"
+                          />
+                        ) : (
+                          <FilePlus className="size-4 text-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        {item.kind === 'user' ? (
+                          <>
+                            <p className="truncate font-medium">
+                              {item.user.name}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.user.email}
+                            </p>
+                          </>
+                        ) : item.kind === 'page' ? (
+                          <>
+                            <p className="truncate font-medium">
+                              {pageName ?? 'Unnamed'}
+                            </p>
+                            <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <FileText className="size-3" />
+                              Page
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="truncate font-medium">
+                              {item.name.trim().length > 0
+                                ? `Create "${pageName}"`
+                                : 'Create new page'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              New page
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </ScrollViewport>
             <ScrollBar orientation="vertical" />
@@ -273,53 +306,6 @@ const renderItems = () => {
       }
     },
   };
-};
-
-const searchPages = async ({
-  context,
-  query,
-}: {
-  context: EditorContext;
-  query: string;
-}): Promise<LocalPageNode[]> => {
-  const filters: NodeListQueryInput['filters'] = [
-    {
-      field: ['type'],
-      operator: 'eq',
-      value: 'page',
-    },
-    {
-      field: ['id'],
-      operator: 'not_eq',
-      value: context.documentId,
-    },
-  ];
-
-  if (query.length > 0) {
-    filters.push({
-      field: ['name'],
-      operator: 'like',
-      value: `%${query}%`,
-    });
-  }
-
-  const nodes = await window.colanode.executeQuery({
-    type: 'node.list',
-    userId: context.userId,
-    filters,
-    sorts: [
-      {
-        field: ['name'],
-        direction: 'asc',
-        nulls: 'last',
-      },
-    ] satisfies NodeListQueryInput['sorts'],
-    limit: 50,
-  });
-
-  return nodes.filter(
-    (node: LocalNode): node is LocalPageNode => node.type === 'page'
-  );
 };
 
 export const MentionExtension = Node.create<MentionOptions>({
@@ -396,6 +382,18 @@ export const MentionExtension = Node.create<MentionOptions>({
               ])
               .run();
           } else {
+            if (!this.options.context) {
+              return;
+            }
+
+            const page =
+              props.kind === 'page'
+                ? props.page
+                : createEditorPage({
+                    context: this.options.context,
+                    name: props.name,
+                  });
+
             editor
               .chain()
               .focus()
@@ -404,7 +402,7 @@ export const MentionExtension = Node.create<MentionOptions>({
                   type: 'pageLink',
                   attrs: {
                     id: generateId(IdType.Block),
-                    target: props.page.id,
+                    target: page.id,
                   },
                 },
                 {
@@ -447,7 +445,7 @@ export const MentionExtension = Node.create<MentionOptions>({
               })
               .catch(() => [] as User[]);
 
-            const pagesPromise = searchPages({
+            const pagesPromise = searchEditorPages({
               context,
               query,
             }).catch(() => [] as LocalPageNode[]);
@@ -465,6 +463,10 @@ export const MentionExtension = Node.create<MentionOptions>({
                   kind: 'page' as const,
                   page,
                 })),
+                {
+                  kind: 'create-page' as const,
+                  name: query,
+                },
               ]);
             });
           });

@@ -1,10 +1,22 @@
 import { Editor, type Range } from '@tiptap/core';
 import { FC } from 'react';
 
+export type EditorCommandClientRect = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+};
+
 export type EditorCommandProps = {
   editor: Editor;
   range: Range;
   context: EditorContext | null;
+  clientRect?: (() => EditorCommandClientRect | null) | null;
 };
 
 export type EditorContext = {

@@ -254,6 +254,15 @@ export const CommanderExtension = Extension.create<CommanderOptions>({
             editor,
             range,
             context: this.options.context,
+            clientRect: () => {
+              const pos = editor.view.coordsAtPos(range.from);
+              return {
+                left: pos.left,
+                right: pos.right,
+                top: pos.top,
+                bottom: pos.bottom,
+              };
+            },
           });
 
           if (result instanceof Promise) {
